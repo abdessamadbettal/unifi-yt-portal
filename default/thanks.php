@@ -4,6 +4,11 @@ require 'header.php';
 
 $redirect_url = $_SERVER['REDIRECT_URL'];
 
+Logger::success('Guest authorization complete - showing thank you page', [
+    'mac' => $_SESSION['id'] ?? 'unknown',
+    'redirect_url' => $redirect_url
+]);
+
 ?>
 <!DOCTYPE HTML>
 <html>

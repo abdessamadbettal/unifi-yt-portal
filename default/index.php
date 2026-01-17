@@ -3,25 +3,48 @@
 require 'header.php';
 include 'config.php';
 
+Logger::info('Index page loaded');
+
 if (isset($_GET['id'])) {
   $_SESSION["id"] = $_GET['id'];
   $_SESSION["ap"] = $_GET['ap'];
+  Logger::info('Session variables set from GET parameters', [
+      'mac' => $_GET['id'],
+      'ap' => $_GET['ap']
+  ]);
 }
 
 $_SESSION["user_type"] = "new";
 
 # Checking DB to see if user exists or not.
 
-$result = mysqli_query($con, "SELECT * FROM `$table_name` WHERE mac='$_SESSION[mac]'");
+Logger::debug('Checking if user exists in database', ['mac' => $_SESSION['id'] ?? 'unknown']);
 
-if ($result->num_rows >= 1) {
+$mac = mysqli_real_escape_string($con, $_SESSION['id'] ?? '');
+$result = mysqli_query($con, "SELECT * FROM `$table_name` WHERE mac='$mac'");
+
+if (!$result) {
+    Logger::error('Database query failed', [
+        'error' => mysqli_error($con),
+        'query' => "SELECT * FROM $table_name WHERE mac='$mac'"
+    ]);
+    mysqli_close($con);
+} elseif ($result->num_rows >= 1) {
   $row = mysqli_fetch_array($result);
+
+  Logger::info('Returning user detected', [
+      'mac' => $mac,
+      'firstname' => $row['firstname'] ?? 'unknown',
+      'email' => $row['email'] ?? 'unknown'
+  ]);
 
   mysqli_close($con);
 
   $_SESSION["user_type"] = "repeat";
+  Logger::info('Redirecting to welcome page for repeat user');
   header("Location: welcome.php");
 } else {
+  Logger::info('New user detected - showing registration form', ['mac' => $mac]);
   mysqli_close($con);
 }
 

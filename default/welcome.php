@@ -2,6 +2,11 @@
 
 require 'header.php';
 
+Logger::info('Welcome page loaded for returning user', [
+    'mac' => $_SESSION['id'] ?? 'unknown',
+    'user_type' => $_SESSION['user_type'] ?? 'unknown'
+]);
+
 ?>
 <!DOCTYPE HTML>
 <html>

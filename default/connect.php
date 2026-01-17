@@ -3,9 +3,18 @@
 require 'header.php';
 include 'config.php';
 
+Logger::info('Connect page - Starting authorization process');
+
 $mac = $_SESSION["id"];
 $apmac = $_SESSION["ap"];
 $url = $_SERVER['REDIRECT_URL'];
+
+Logger::debug('Authorization parameters', [
+    'mac' => $mac,
+    'ap_mac' => $apmac,
+    'redirect_url' => $url,
+    'user_type' => $_SESSION["user_type"] ?? 'unknown'
+]);
 
 $controlleruser = $_SERVER['CONTROLLER_USER'];
 $controllerpassword = $_SERVER['CONTROLLER_PASSWORD'];
@@ -15,19 +24,68 @@ $duration = $_SERVER['DURATION'];
 $debug = false;
 $site_id = $_SERVER['SITE_ID'];
 
-$unifi_connection = new UniFi_API\Client($controlleruser, $controllerpassword, $controllerurl, $site_id, $controllerversion);
-$set_debug_mode = $unifi_connection->set_debug($debug);
-$loginresults = $unifi_connection->login();
+Logger::info('UniFi controller configuration', [
+    'url' => $controllerurl,
+    'version' => $controllerversion,
+    'site_id' => $site_id,
+    'duration' => $duration . ' minutes'
+]);
 
-$auth_result = $unifi_connection->authorize_guest($mac, $duration, null, null, null, $apmac);
+try {
+    Logger::info('Connecting to UniFi controller');
+    $unifi_connection = new UniFi_API\Client($controlleruser, $controllerpassword, $controllerurl, $site_id, $controllerversion);
+    $set_debug_mode = $unifi_connection->set_debug($debug);
+    
+    Logger::info('Attempting UniFi login');
+    $loginresults = $unifi_connection->login();
+    
+    if ($loginresults) {
+        Logger::success('UniFi controller login successful');
+    } else {
+        Logger::error('UniFi controller login failed');
+    }
+    
+    Logger::info('Authorizing guest on network', [
+        'mac' => $mac,
+        'duration' => $duration,
+        'ap_mac' => $apmac
+    ]);
+    
+    $auth_result = $unifi_connection->authorize_guest($mac, $duration, null, null, null, $apmac);
+    
+    if ($auth_result) {
+        Logger::success('Guest authorized successfully', [
+            'mac' => $mac,
+            'result' => json_encode($auth_result)
+        ]);
+    } else {
+        Logger::error('Guest authorization failed', [
+            'mac' => $mac
+        ]);
+    }
+} catch (Exception $e) {
+    Logger::error('UniFi connection exception', [
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
+}
 
 if ($_SESSION["user_type"] == "new") {
 
-  $fname = $_POST['fname'];
-  $lname = $_POST['lname'];
-  $email = $_POST['email'];
+  Logger::info('Processing new user registration');
 
-  mysqli_query($con, "
+  $fname = mysqli_real_escape_string($con, $_POST['fname'] ?? '');
+  $lname = mysqli_real_escape_string($con, $_POST['lname'] ?? '');
+  $email = mysqli_real_escape_string($con, $_POST['email'] ?? '');
+
+  Logger::debug('New user details', [
+      'firstname' => $fname,
+      'lastname' => $lname,
+      'email' => $email,
+      'mac' => $mac
+  ]);
+
+  $create_table_result = mysqli_query($con, "
     CREATE TABLE IF NOT EXISTS `$table_name` (
     `id` int(11) NOT NULL AUTO_INCREMENT,
     `firstname` varchar(45) NOT NULL,
@@ -39,10 +97,36 @@ if ($_SESSION["user_type"] == "new") {
     UNIQUE KEY (mac)
     )");
 
-  mysqli_query($con, "INSERT INTO `$table_name` (firstname, lastname, email, mac, last_updated) VALUES ('$fname', '$lname', '$email','$mac', NOW())");
+  if (!$create_table_result) {
+      Logger::error('Failed to create table', [
+          'error' => mysqli_error($con),
+          'table' => $table_name
+      ]);
+  } else {
+      Logger::debug('Table exists or created successfully');
+  }
+
+  $insert_result = mysqli_query($con, "INSERT INTO `$table_name` (firstname, lastname, email, mac, last_updated) VALUES ('$fname', '$lname', '$email','$mac', NOW())");
+  
+  if (!$insert_result) {
+      Logger::error('Failed to insert user data', [
+          'error' => mysqli_error($con),
+          'mac' => $mac
+      ]);
+  } else {
+      Logger::success('New user registered successfully', [
+          'firstname' => $fname,
+          'lastname' => $lname,
+          'email' => $email,
+          'mac' => $mac
+      ]);
+  }
 }
 
+Logger::info('Closing database connection');
 mysqli_close($con);
+
+Logger::info('Redirecting to thank you page');
 
 ?>
 <!DOCTYPE HTML>
