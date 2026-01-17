@@ -10,10 +10,10 @@ Logger::info('Session started', [
     'request_uri' => $_SERVER['REQUEST_URI'] ?? 'unknown'
 ]);
 
-// if (!(isset($_SESSION['id']) or isset($_GET['id']))) {
-//     Logger::warning('Direct access attempt blocked - no session or GET id');
-//     exit('This page cannot be accessed directly. It only works when using a hotspot.');
-// }
+if (!(isset($_SESSION['id']) or isset($_GET['id']))) {
+    Logger::warning('Direct access attempt blocked - no session or GET id');
+    exit('This page cannot be accessed directly. It only works when using a hotspot.');
+}
 
 if (isset($_GET['id'])) {
     Logger::info('New guest connection', [
