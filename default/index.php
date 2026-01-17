@@ -10,7 +10,7 @@ if (isset($_GET['id'])) {
 
 $_SESSION["user_type"] = "new";
 
-# Checking DB to see if user exists or not.
+# Checking DB to see if user exists or not
 
 $result = mysqli_query($con, "SELECT * FROM `$table_name` WHERE mac='$_SESSION[mac]'");
 
